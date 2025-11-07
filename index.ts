@@ -46,7 +46,7 @@ function detectAddressNetwork(
         // Try using bitcoinjs-lib first (works for non-taproot)
         bitcoin.address.toOutputScript(address, bitcoin.networks.bitcoin);
         return "mainnet";
-      } catch (e) {
+      } catch {
         // Fallback to manual bech32/bech32m validation for taproot
         try {
           const decoded = lowerAddress.startsWith("bc1p")
@@ -63,7 +63,7 @@ function detectAddressNetwork(
       try {
         bitcoin.address.toOutputScript(address, bitcoin.networks.testnet);
         return "testnet";
-      } catch (e) {
+      } catch {
         try {
           const decoded = lowerAddress.startsWith("tb1p")
             ? bech32m.decode(address as `${string}1${string}`, 90)
@@ -79,7 +79,7 @@ function detectAddressNetwork(
       try {
         bitcoin.address.toOutputScript(address, bitcoin.networks.regtest);
         return "regtest";
-      } catch (e) {
+      } catch {
         try {
           const decoded = lowerAddress.startsWith("bcrt1p")
             ? bech32m.decode(address as `${string}1${string}`, 90)
@@ -105,7 +105,7 @@ function detectAddressNetwork(
     else if (version === 0x6f || version === 0xc4) {
       return "testnet";
     }
-  } catch (e) {
+  } catch {
     return undefined;
   }
   return undefined;
@@ -134,7 +134,7 @@ function validateLightningInvoice(invoice: string): {
   error?: string;
 } {
   try {
-    const decoded = decodeLightning(invoice);
+    const _decoded = decodeLightning(invoice);
     let network: "mainnet" | "testnet" | "regtest" | "signet" | undefined;
 
     const lowerInvoice = invoice.toLowerCase();
@@ -174,7 +174,7 @@ function validatePopUri(popUri: string): { valid: boolean; error?: string } {
     }
 
     return { valid: true };
-  } catch (e) {
+  } catch {
     return { valid: false, error: "Invalid pop URI encoding" };
   }
 }
@@ -284,7 +284,7 @@ export function parseBIP321(uri: string): BIP321ParseResult {
           }
         }
       } else if (lowerKey === "pop" || lowerKey === "req-pop") {
-        const popKey = lowerKey === "req-pop" ? "req-pop" : "pop";
+        const _popKey = lowerKey === "req-pop" ? "req-pop" : "pop";
         if (result.pop !== undefined || result.popRequired !== undefined) {
           result.errors.push("Multiple pop/req-pop parameters not allowed");
           result.valid = false;
