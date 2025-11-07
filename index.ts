@@ -115,7 +115,7 @@ function detectAddressNetwork(
       else if (version === 0x6f || version === 0xc4) {
         return "testnet";
       }
-    } catch (e) {
+    } catch {
       return undefined;
     }
   } catch {
