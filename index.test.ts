@@ -42,8 +42,8 @@ describe("BIP-321 Parser", () => {
       expect(result.address).toBe(TEST_DATA.addresses.mainnet.p2pkh);
       expect(result.network).toBe("mainnet");
       expect(result.paymentMethods.length).toBe(1);
-      expect(result.paymentMethods[0]!.type).toBe("onchain");
-      expect(result.paymentMethods[0]!.valid).toBe(true);
+      expect(result.paymentMethods[0]?.type).toBe("onchain");
+      expect(result.paymentMethods[0]?.valid).toBe(true);
     });
 
     test("parses bech32 mainnet address", () => {
@@ -52,7 +52,7 @@ describe("BIP-321 Parser", () => {
       );
       expect(result.valid).toBe(true);
       expect(result.network).toBe("mainnet");
-      expect(result.paymentMethods[0]!.valid).toBe(true);
+      expect(result.paymentMethods[0]?.valid).toBe(true);
     });
 
     test("parses testnet address", () => {

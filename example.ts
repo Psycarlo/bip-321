@@ -47,7 +47,7 @@ const example4 = parseBIP321(
   "bitcoin:?lightning=lnbc15u1p3xnhl2pp5jptserfk3zk4qy42tlucycrfwxhydvlemu9pqr93tuzlv9cc7g3sdqsvfhkcap3xyhx7un8cqzpgxqzjcsp5f8c52y2stc300gl6s4xswtjpc37hrnnr3c9wvtgjfuvqmpm35evq9qyyssqy4lgd8tj637qcjp05rdpxxykjenthxftej7a2zzmwrmrl70fyj9hvj0rewhzj7jfyuwkwcg9g2jpwtk3wkjtwnkdks84hsnu8xps5vsq4gj5hs",
 );
 console.log(`Valid: ${example4.valid}`);
-console.log(`Address in path: ${example4.address || "none"}`);
+console.log(`Address in path: ${example4.address ?? "none"}`);
 console.log(`Payment type: ${example4.paymentMethods[0]?.type}`);
 console.log(`Network: ${example4.paymentMethods[0]?.network}`);
 console.log();
@@ -71,8 +71,8 @@ const example6 = parseBIP321(
 );
 const byNetwork = getPaymentMethodsByNetwork(example6);
 console.log(`Valid: ${example6.valid}`);
-console.log(`Mainnet methods: ${byNetwork.mainnet?.length || 0}`);
-console.log(`Testnet methods: ${byNetwork.testnet?.length || 0}`);
+console.log(`Mainnet methods: ${byNetwork.mainnet?.length ?? 0}`);
+console.log(`Testnet methods: ${byNetwork.testnet?.length ?? 0}`);
 console.log();
 
 // Example 7: Testnet lightning invoice

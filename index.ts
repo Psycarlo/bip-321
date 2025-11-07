@@ -179,7 +179,7 @@ function validatePopUri(popUri: string): { valid: boolean; error?: string } {
     const decoded = decodeURIComponent(popUri);
     const schemeMatch = decoded.match(/^([a-zA-Z][a-zA-Z0-9+.-]*):?/);
 
-    if (schemeMatch && schemeMatch[1]) {
+    if (schemeMatch?.[1]) {
       const scheme = schemeMatch[1].toLowerCase();
       if (FORBIDDEN_POP_SCHEMES.includes(scheme)) {
         return { valid: false, error: `Forbidden pop scheme: ${scheme}` };
@@ -268,7 +268,7 @@ export function parseBIP321(
       }
 
       const lowerKey = key.toLowerCase();
-      const count = (seenKeys.get(lowerKey) || 0) + 1;
+      const count = (seenKeys.get(lowerKey) ?? 0) + 1;
       seenKeys.set(lowerKey, count);
 
       if (lowerKey === "label") {
@@ -308,7 +308,7 @@ export function parseBIP321(
           // Keep pop value encoded as per spec
           const validation = validatePopUri(value);
           if (!validation.valid) {
-            result.errors.push(validation.error || "Invalid pop URI");
+            result.errors.push(validation.error ?? "Invalid pop URI");
             if (lowerKey === "req-pop") {
               result.valid = false;
             }
@@ -327,7 +327,7 @@ export function parseBIP321(
           error: validation.error,
         });
         if (!validation.valid) {
-          result.errors.push(validation.error || "Invalid lightning invoice");
+          result.errors.push(validation.error ?? "Invalid lightning invoice");
         }
       } else if (lowerKey === "lno") {
         const decodedValue = decodeURIComponent(value);
@@ -382,7 +382,7 @@ export function parseBIP321(
         if (!validation.valid || !networkMatches) {
           result.errors.push(
             !validation.valid
-              ? validation.error!
+              ? (validation.error ?? "Invalid address")
               : `Address network mismatch for ${lowerKey} parameter`,
           );
           result.valid = false;
@@ -392,9 +392,7 @@ export function parseBIP321(
         result.errors.push(`Unknown required parameter: ${key}`);
         result.valid = false;
       } else {
-        if (!result.optionalParams[lowerKey]) {
-          result.optionalParams[lowerKey] = [];
-        }
+        result.optionalParams[lowerKey] ??= [];
         result.optionalParams[lowerKey].push(decodeURIComponent(value));
       }
     }
@@ -442,10 +440,17 @@ export function getPaymentMethodsByNetwork(
   };
 
   for (const method of result.paymentMethods) {
-    if (method.network && byNetwork[method.network]) {
-      byNetwork[method.network]!.push(method);
+    const {network} = method;
+    if (network && network in byNetwork) {
+      const networkArray = byNetwork[network];
+      if (networkArray) {
+        networkArray.push(method);
+      }
     } else {
-      byNetwork.unknown!.push(method);
+      const unknownArray = byNetwork.unknown;
+      if (unknownArray) {
+        unknownArray.push(method);
+      }
     }
   }
 
