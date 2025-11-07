@@ -105,6 +105,30 @@ console.log(result.paymentMethods[0].type); // "lightning"
 console.log(result.paymentMethods[0].network); // "mainnet"
 ```
 
+### Network Validation
+
+```typescript
+// Ensure all payment methods are mainnet
+const result = parseBIP321(
+  "bitcoin:bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq?lightning=lnbc...",
+  "mainnet"
+);
+
+if (result.valid) {
+  // All payment methods are guaranteed to be mainnet
+  console.log("All payment methods are mainnet");
+}
+
+// Reject testnet addresses when expecting mainnet
+const invalid = parseBIP321(
+  "bitcoin:tb1qghfhmd4zh7ncpmxl3qzhmq566jk8ckq4gafnmg",
+  "mainnet"
+);
+
+console.log(invalid.valid); // false
+console.log(invalid.errors); // ["Payment method network mismatch..."]
+```
+
 ### Multiple Payment Methods
 
 ```typescript
@@ -142,12 +166,28 @@ if (!result.valid) {
 
 ## API Reference
 
-### `parseBIP321(uri: string): BIP321ParseResult`
+### `parseBIP321(uri: string, expectedNetwork?: "mainnet" | "testnet" | "regtest" | "signet"): BIP321ParseResult`
 
 Parses a BIP-321 URI and returns detailed information about the payment request.
 
 **Parameters:**
 - `uri` - The Bitcoin URI string to parse
+- `expectedNetwork` (optional) - Expected network for all payment methods. If specified, all payment methods must match this network or the URI will be marked invalid.
+</text>
+
+<old_text line=240>
+## Validation Rules
+
+The parser enforces BIP-321 validation rules:
+
+1. ✅ URI must start with `bitcoin:` (case-insensitive)
+2. ✅ Address in URI path must be valid or empty
+3. ✅ `amount` must be decimal BTC (no commas)
+4. ✅ `label`, `message`, and `amount` cannot appear multiple times
+5. ✅ `pop` and `req-pop` cannot both be present
+6. ✅ Required parameters (`req-*`) must be understood or URI is invalid
+7. ✅ Network-specific parameters (`bc`, `tb`, etc.) must match address network
+8. ✅ `pop` URI scheme must not be forbidden (http, https, file, javascript, mailto)
 
 **Returns:** `BIP321ParseResult` object containing:
 
@@ -261,6 +301,7 @@ The parser enforces BIP-321 validation rules:
 6. ✅ Required parameters (`req-*`) must be understood or URI is invalid
 7. ✅ Network-specific parameters (`bc`, `tb`, etc.) must match address network
 8. ✅ `pop` URI scheme must not be forbidden (http, https, file, javascript, mailto)
+9. ✅ If `expectedNetwork` is specified, all payment methods must match that network
 
 ## Browser Usage
 
@@ -307,15 +348,11 @@ function parseQRCode(data: string) {
 }
 ```
 
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
 ## License
 
-BSD-2-Clause (same as BIP-321)
+MIT
 
 ## Related
 
-- [BIP-321 Specification](https://bips.dev/321/)
+- [BIP-321 Specification](https://github.com/bitcoin/bips/blob/master/bip-0321.mediawiki)
 - [BIP-21 (Original)](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki)

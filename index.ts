@@ -192,7 +192,10 @@ function validatePopUri(popUri: string): { valid: boolean; error?: string } {
   }
 }
 
-export function parseBIP321(uri: string): BIP321ParseResult {
+export function parseBIP321(
+  uri: string,
+  expectedNetwork?: "mainnet" | "testnet" | "regtest" | "signet",
+): BIP321ParseResult {
   const result: BIP321ParseResult = {
     paymentMethods: [],
     requiredParams: [],
@@ -400,6 +403,19 @@ export function parseBIP321(uri: string): BIP321ParseResult {
   if (result.paymentMethods.length === 0) {
     result.errors.push("No valid payment methods found");
     result.valid = false;
+  }
+
+  if (expectedNetwork) {
+    for (const method of result.paymentMethods) {
+      if (method.network && method.network !== expectedNetwork) {
+        result.errors.push(
+          `Payment method network mismatch: expected ${expectedNetwork}, got ${method.network}`,
+        );
+        result.valid = false;
+        method.valid = false;
+        method.error = `Network mismatch: expected ${expectedNetwork}`;
+      }
+    }
   }
 
   if (result.popRequired && result.pop) {
