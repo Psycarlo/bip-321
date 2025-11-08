@@ -3,8 +3,17 @@ import { decode as decodeLightning } from "light-bolt11-decoder";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { base58, bech32, bech32m } from "@scure/base";
 
+// Type declaration for missing export in light-bolt12-decoder
+declare module "light-bolt12-decoder" {
+  export function decode(offer: string): {
+    offerRequest: string;
+    sections: Array<{ name: string; value: unknown }>;
+  };
+}
+import { decode as decodeBolt12 } from "light-bolt12-decoder";
+
 export interface PaymentMethod {
-  type: "onchain" | "lightning" | "lno" | "silent-payment" | "other";
+  type: "onchain" | "lightning" | "offer" | "silent-payment" | "ark";
   value: string;
   network?: "mainnet" | "testnet" | "regtest" | "signet";
   valid: boolean;
@@ -174,6 +183,123 @@ function validateLightningInvoice(invoice: string): {
   }
 }
 
+function validateBolt12Offer(offer: string): {
+  valid: boolean;
+  error?: string;
+} {
+  try {
+    if (!offer || typeof offer !== "string") {
+      return { valid: false, error: "Empty or invalid offer" };
+    }
+
+    const lowerOffer = offer.toLowerCase();
+    if (!lowerOffer.startsWith("ln")) {
+      return { valid: false, error: "Invalid BOLT12 offer format" };
+    }
+
+    decodeBolt12(offer);
+    return { valid: true };
+  } catch (e) {
+    return {
+      valid: false,
+      error: `Invalid BOLT12 offer: ${e instanceof Error ? e.message : String(e)}`,
+    };
+  }
+}
+
+function validateSilentPaymentAddress(address: string): {
+  valid: boolean;
+  network?: "mainnet" | "testnet" | "regtest" | "signet";
+  error?: string;
+} {
+  try {
+    const lowerAddress = address.toLowerCase();
+
+    let network: "mainnet" | "testnet" | undefined;
+    if (lowerAddress.startsWith("sp1q")) {
+      network = "mainnet";
+    } else if (lowerAddress.startsWith("tsp1q")) {
+      network = "testnet";
+    } else {
+      return { valid: false, error: "Invalid silent payment address prefix" };
+    }
+
+    const decoded = bech32m.decode(address as `${string}1${string}`, 1023);
+
+    const expectedPrefix = network === "mainnet" ? "sp" : "tsp";
+    if (decoded.prefix !== expectedPrefix) {
+      return { valid: false, error: "Invalid silent payment address prefix" };
+    }
+
+    // Check version (first word should be 0 for v0, which encodes as 'q')
+    if (decoded.words.length === 0 || decoded.words[0] !== 0) {
+      return { valid: false, error: "Unsupported silent payment version" };
+    }
+
+    // Convert from 5-bit words to bytes
+    const dataWords = decoded.words.slice(1);
+    const data = bech32m.fromWordsUnsafe(dataWords);
+
+    if (!data) {
+      return { valid: false, error: "Invalid silent payment address data" };
+    }
+
+    // BIP-352: v0 addresses must be exactly 66 bytes (33-byte scan key + 33-byte spend key)
+    if (data.length !== 66) {
+      return { valid: false, error: "Invalid silent payment address length" };
+    }
+
+    // Validate both public keys are valid compressed keys (0x02 or 0x03 prefix)
+    const scanKey = data[0];
+    const spendKey = data[33];
+    if (
+      (scanKey !== 0x02 && scanKey !== 0x03) ||
+      (spendKey !== 0x02 && spendKey !== 0x03)
+    ) {
+      return {
+        valid: false,
+        error: "Invalid public key format in silent payment address",
+      };
+    }
+
+    return { valid: true, network };
+  } catch (e) {
+    return {
+      valid: false,
+      error: `Invalid silent payment address: ${e instanceof Error ? e.message : String(e)}`,
+    };
+  }
+}
+
+function validateArkAddress(address: string): {
+  valid: boolean;
+  network?: "mainnet" | "testnet" | "regtest" | "signet";
+  error?: string;
+} {
+  try {
+    const lowerAddress = address.toLowerCase();
+
+    if (lowerAddress.startsWith("ark1")) {
+      const decoded = bech32m.decode(address as `${string}1${string}`, 1023);
+      if (decoded.prefix === "ark") {
+        return { valid: true, network: "mainnet" };
+      }
+    } else if (lowerAddress.startsWith("tark1")) {
+      const decoded = bech32m.decode(address as `${string}1${string}`, 1023);
+      if (decoded.prefix === "tark") {
+        return { valid: true, network: "testnet" };
+      }
+    }
+
+    return { valid: false, error: "Invalid Ark address format" };
+  } catch (e) {
+    return {
+      valid: false,
+      error: `Invalid Ark address: ${e instanceof Error ? e.message : String(e)}`,
+    };
+  }
+}
+
 function validatePopUri(popUri: string): { valid: boolean; error?: string } {
   try {
     const decoded = decodeURIComponent(popUri);
@@ -331,24 +457,43 @@ export function parseBIP321(
         }
       } else if (lowerKey === "lno") {
         const decodedValue = decodeURIComponent(value);
+        const validation = validateBolt12Offer(decodedValue);
         result.paymentMethods.push({
-          type: "lno",
+          type: "offer",
           value: decodedValue,
-          valid: true,
+          valid: validation.valid,
+          error: validation.error,
         });
+        if (!validation.valid) {
+          result.errors.push(validation.error ?? "Invalid BOLT12 offer");
+        }
       } else if (lowerKey === "sp") {
         const decodedValue = decodeURIComponent(value);
-        const isSilentPayment = decodedValue.toLowerCase().startsWith("sp1");
+        const validation = validateSilentPaymentAddress(decodedValue);
         result.paymentMethods.push({
           type: "silent-payment",
           value: decodedValue,
-          valid: isSilentPayment,
-          error: isSilentPayment
-            ? undefined
-            : "Invalid silent payment address format",
+          network: validation.network,
+          valid: validation.valid,
+          error: validation.error,
         });
-        if (!isSilentPayment) {
-          result.errors.push("Invalid silent payment address format");
+        if (!validation.valid) {
+          result.errors.push(
+            validation.error ?? "Invalid silent payment address",
+          );
+        }
+      } else if (lowerKey === "ark") {
+        const decodedValue = decodeURIComponent(value);
+        const validation = validateArkAddress(decodedValue);
+        result.paymentMethods.push({
+          type: "ark",
+          value: decodedValue,
+          network: validation.network,
+          valid: validation.valid,
+          error: validation.error,
+        });
+        if (!validation.valid) {
+          result.errors.push(validation.error ?? "Invalid Ark address");
         }
       } else if (
         lowerKey === "bc" ||
@@ -440,7 +585,7 @@ export function getPaymentMethodsByNetwork(
   };
 
   for (const method of result.paymentMethods) {
-    const {network} = method;
+    const { network } = method;
     if (network && network in byNetwork) {
       const networkArray = byNetwork[network];
       if (networkArray) {

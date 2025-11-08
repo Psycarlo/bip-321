@@ -30,6 +30,18 @@ const TEST_DATA = {
     signet:
       "lntbs10u1p5s6wgtsp5d8a763exauvdk6s5gwvl8zmuapmgjq05fdv6trasjd4slvgkvzzqpp56vxdyl24hmkpz0tvqq84xdpqqeql3x7kh8tey4uum2cu8jny6djqdq4g9exkgznw3hhyefqyvenyxqzjccqp2rzjqdwy5et9ygczjl2jqmr9e5xm28u3gksjfrf0pht04uwz2lt9d59cypqelcqqq8gqqqqqqqqpqqqqqzsqqc9qxpqysgq0x0pg2s65rnp2cr35td5tq0vwgmnrghkpzt93eypqvvfu5m40pcjl9k2x2m4kqgvz2ez8tzxqgw0nyeg2w60nfky579uakd4mhr3ncgp0xwars",
   },
+  ark: {
+    mainnet:
+      "ark1pwh9vsmezqqpjy9akejayl2vvcse6he97rn40g84xrlvrlnhayuuyefrp9nse2yspqqjl5wpy",
+    testnet:
+      "tark1pm6sr0fpzqqpnzzwxf209kju4qavs4gtumxk30yv2u5ncrvtp72z34axcvrydtdqpqq5838km",
+  },
+  silentPayment: {
+    mainnet:
+      "sp1qqvgwll3hawztz50nx5mcs70ytam4z068c2cw0z37zcg5yj23h65kcqamhqcxal0gerzly0jnkv7x0ar3sjhmh0n5yugyj3kd7ahzfsdw5590ajuk",
+    testnet:
+      "tsp1qq2svvt45f2rzmfr4vwhgvjfjgna92h09g9a9ttpvmz5x5wmscsepyqhkk6tjxzr6v0vj3q87gcrqjq73z6ljylgk4m6vphvkpg4afzwp4ve0nr78",
+  },
 } as const;
 
 describe("BIP-321 Parser", () => {
@@ -193,26 +205,110 @@ describe("BIP-321 Parser", () => {
   });
 
   describe("Alternative Payment Methods", () => {
-    test("parses BOLT12 offer", () => {
-      const result = parseBIP321("bitcoin:?lno=lno1bogusoffer");
+    test("parses valid BOLT12 offer", () => {
+      const result = parseBIP321("bitcoin:?lno=lno1qqqq02k20d");
       expect(result.valid).toBe(true);
       expect(result.paymentMethods.length).toBe(1);
-      expect(result.paymentMethods[0]!.type).toBe("lno");
+      expect(result.paymentMethods[0]!.type).toBe("offer");
+      expect(result.paymentMethods[0]!.valid).toBe(true);
     });
 
-    test("parses silent payment address", () => {
-      const result = parseBIP321("bitcoin:?sp=sp1qsilentpayment");
+    test("rejects invalid BOLT12 offer", () => {
+      const result = parseBIP321("bitcoin:?lno=lno1bogusoffer");
+      expect(result.paymentMethods.length).toBe(1);
+      expect(result.paymentMethods[0]!.type).toBe("offer");
+      expect(result.paymentMethods[0]!.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("BOLT12 offer"))).toBe(true);
+    });
+
+    test("parses mainnet silent payment address", () => {
+      const result = parseBIP321(
+        `bitcoin:?sp=${TEST_DATA.silentPayment.mainnet}`,
+      );
       expect(result.valid).toBe(true);
       expect(result.paymentMethods.length).toBe(1);
       expect(result.paymentMethods[0]!.type).toBe("silent-payment");
+      expect(result.paymentMethods[0]!.network).toBe("mainnet");
+      expect(result.paymentMethods[0]!.valid).toBe(true);
+    });
+
+    test("parses testnet silent payment address", () => {
+      const result = parseBIP321(
+        `bitcoin:?sp=${TEST_DATA.silentPayment.testnet}`,
+      );
+      expect(result.valid).toBe(true);
+      expect(result.paymentMethods.length).toBe(1);
+      expect(result.paymentMethods[0]!.type).toBe("silent-payment");
+      expect(result.paymentMethods[0]!.network).toBe("testnet");
+      expect(result.paymentMethods[0]!.valid).toBe(true);
+    });
+
+    test("rejects invalid silent payment address", () => {
+      const result = parseBIP321("bitcoin:?sp=sp1qinvalid");
+      expect(result.paymentMethods.length).toBe(1);
+      expect(result.paymentMethods[0]!.type).toBe("silent-payment");
+      expect(result.paymentMethods[0]!.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("silent payment"))).toBe(
+        true,
+      );
     });
 
     test("parses multiple payment methods", () => {
       const result = parseBIP321(
-        "bitcoin:?lno=lno1bogusoffer&sp=sp1qsilentpayment",
+        `bitcoin:?lno=lno1qqqq02k20d&sp=${TEST_DATA.silentPayment.mainnet}`,
       );
       expect(result.valid).toBe(true);
       expect(result.paymentMethods.length).toBe(2);
+    });
+  });
+
+  describe("Ark Addresses", () => {
+    test("parses mainnet Ark address", () => {
+      const result = parseBIP321(`bitcoin:?ark=${TEST_DATA.ark.mainnet}`);
+      expect(result.valid).toBe(true);
+      expect(result.paymentMethods.length).toBe(1);
+      expect(result.paymentMethods[0]!.type).toBe("ark");
+      expect(result.paymentMethods[0]!.network).toBe("mainnet");
+      expect(result.paymentMethods[0]!.valid).toBe(true);
+    });
+
+    test("parses testnet Ark address", () => {
+      const result = parseBIP321(`bitcoin:?ark=${TEST_DATA.ark.testnet}`);
+      expect(result.valid).toBe(true);
+      expect(result.paymentMethods.length).toBe(1);
+      expect(result.paymentMethods[0]!.type).toBe("ark");
+      expect(result.paymentMethods[0]!.network).toBe("testnet");
+      expect(result.paymentMethods[0]!.valid).toBe(true);
+    });
+
+    test("rejects invalid Ark address", () => {
+      const result = parseBIP321("bitcoin:?ark=invalid_ark_address");
+      expect(result.paymentMethods.length).toBe(1);
+      expect(result.paymentMethods[0]!.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("Ark address"))).toBe(true);
+    });
+
+    test("parses Ark with Bitcoin address", () => {
+      const result = parseBIP321(
+        `bitcoin:${TEST_DATA.addresses.mainnet.p2pkh}?ark=${TEST_DATA.ark.mainnet}`,
+      );
+      expect(result.valid).toBe(true);
+      expect(result.paymentMethods.length).toBe(2);
+      expect(result.paymentMethods[0]!.type).toBe("onchain");
+      expect(result.paymentMethods[1]!.type).toBe("ark");
+      expect(result.paymentMethods[0]!.network).toBe("mainnet");
+      expect(result.paymentMethods[1]!.network).toBe("mainnet");
+    });
+
+    test("validates Ark network matches expected network", () => {
+      const result = parseBIP321(
+        `bitcoin:?ark=${TEST_DATA.ark.mainnet}`,
+        "testnet",
+      );
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("network mismatch"))).toBe(
+        true,
+      );
     });
   });
 

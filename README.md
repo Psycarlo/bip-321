@@ -5,7 +5,7 @@ A TypeScript/JavaScript library for parsing BIP-321 Bitcoin URI scheme. This lib
 ## Features
 
 - ✅ **Complete BIP-321 compliance** - Implements the full BIP-321 specification
-- ✅ **Multiple payment methods** - Supports on-chain, Lightning (BOLT11), BOLT12 offers, and silent payments
+- ✅ **Multiple payment methods** - Supports on-chain, Lightning (BOLT11), BOLT12 offers, silent payments, and Ark
 - ✅ **Network detection** - Automatically detects mainnet, testnet, regtest, and signet networks
 - ✅ **Address validation** - Validates Bitcoin addresses (P2PKH, P2SH, Segwit v0, Taproot)
 - ✅ **Lightning invoice validation** - Validates BOLT11 Lightning invoices
@@ -21,7 +21,7 @@ result.paymentMethods;  // PaymentMethod[]
 result.errors;          // string[]
 
 result.paymentMethods.forEach((method: PaymentMethod) => {
-  method.type;    // "onchain" | "lightning" | "lno" | "silent-payment" | "other"
+  method.type;    // "onchain" | "lightning" | "offer" | "silent-payment" | "ark"
   method.network; // "mainnet" | "testnet" | "regtest" | "signet" | undefined
   method.valid;   // boolean
 });
@@ -105,6 +105,25 @@ console.log(result.paymentMethods[0].type); // "lightning"
 console.log(result.paymentMethods[0].network); // "mainnet"
 ```
 
+### Ark Payment
+
+```typescript
+// Mainnet Ark address
+const result = parseBIP321(
+  "bitcoin:?ark=ark1pwh9vsmezqqpjy9akejayl2vvcse6he97rn40g84xrlvrlnhayuuyefrp9nse2yspqqjl5wpy"
+);
+
+console.log(result.paymentMethods[0].type); // "ark"
+console.log(result.paymentMethods[0].network); // "mainnet"
+
+// Testnet Ark address
+const testnetResult = parseBIP321(
+  "bitcoin:?ark=tark1pm6sr0fpzqqpnzzwxf209kju4qavs4gtumxk30yv2u5ncrvtp72z34axcvrydtdqpqq5838km"
+);
+
+console.log(testnetResult.paymentMethods[0].network); // "testnet"
+```
+
 ### Network Validation
 
 ```typescript
@@ -136,7 +155,7 @@ const result = parseBIP321(
   "bitcoin:?lightning=lnbc...&lno=lno1bogusoffer&sp=sp1qsilentpayment"
 );
 
-// Returns 3 payment methods: lightning, lno (BOLT12), and silent-payment
+// Returns 3 payment methods: lightning, offer (BOLT12), and silent-payment
 console.log(`Total payment methods: ${result.paymentMethods.length}`);
 ```
 
@@ -221,7 +240,7 @@ interface BIP321ParseResult {
 
 ```typescript
 interface PaymentMethod {
-  type: "onchain" | "lightning" | "lno" | "silent-payment" | "other";
+  type: "onchain" | "lightning" | "offer" | "silent-payment" | "ark";
   value: string; // The actual address/invoice value
   network?: "mainnet" | "testnet" | "regtest" | "signet";
   valid: boolean; // Whether this payment method is valid
@@ -271,8 +290,9 @@ console.log(summary);
 |--------|--------------|-------------|
 | On-chain | `address` or `bc`/`tb`/`bcrt`/`tbs` | Bitcoin addresses (P2PKH, P2SH, Segwit, Taproot) |
 | Lightning | `lightning` | BOLT11 Lightning invoices |
-| BOLT12 | `lno` | Lightning BOLT12 offers |
+| BOLT12 Offer | `lno` | Lightning BOLT12 offers |
 | Silent Payments | `sp` | BIP352 Silent Payment addresses |
+| Ark | `ark` | Ark addresses (mainnet: `ark1...`, testnet: `tark1...`) |
 
 ## Network Detection
 
@@ -288,6 +308,10 @@ The library automatically detects the network from:
 - **Testnet**: `lntb...`
 - **Regtest**: `lnbcrt...`
 - **Signet**: `lntbs...`
+
+### Ark Addresses
+- **Mainnet**: `ark1...`
+- **Testnet**: `tark1...`
 
 ## Validation Rules
 
@@ -356,3 +380,7 @@ MIT
 
 - [BIP-321 Specification](https://github.com/bitcoin/bips/blob/master/bip-0321.mediawiki)
 - [BIP-21 (Original)](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki)
+- [BIP-352 Silent Payments](https://github.com/bitcoin/bips/blob/master/bip-0352.mediawiki)
+- [BOAT-0001 Ark Address Format](https://github.com/ark-protocol/boats/blob/master/boat-0001.md)
+- [BOLT11 Lightning Invoices](https://github.com/lightning/bolts/blob/master/11-payment-encoding.md)
+- [BOLT12 Lightning Offers](https://github.com/lightning/bolts/blob/master/12-offer-encoding.md)
