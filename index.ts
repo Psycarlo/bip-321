@@ -384,11 +384,18 @@ export function encodeBIP321(params: BIP321EncodeParams): BIP321ParseResult & { 
   }
 
   const address = params.address ?? "";
-  const query = searchParams.toString();
-  const encoded = `bitcoin:${address}${query ? `?${query}` : ""}`;
-  const parsed = parseBIP321(encoded)
+  
+  // URLSearchParams encodes spaces as '+', but BIP-321 expects percent encoding
+  const query = searchParams.toString().replace(/\+/g, "%20");
+  const uri = `bitcoin:${address}${query ? `?${query}` : ""}`;
+  const parsed = parseBIP321(uri);
 
-  return { ...parsed, uri: encoded }
+  const hasValidPaymentMethod = parsed.paymentMethods.some((pm) => pm.valid);
+  if (!parsed.valid || !hasValidPaymentMethod) {
+    throw new Error(parsed.errors.join("; ") || "No valid payment methods");
+  }
+
+  return { ...parsed, uri };
 }
 
 export function getPaymentMethodsByNetwork(
