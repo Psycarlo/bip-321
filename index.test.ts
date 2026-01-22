@@ -4,6 +4,7 @@ import {
   getPaymentMethodsByNetwork,
   getValidPaymentMethods,
   formatPaymentMethodsSummary,
+  encodeBIP321,
 } from "./index";
 
 const TEST_DATA = {
@@ -596,6 +597,355 @@ describe("BIP-321 Parser", () => {
       expect(result.valid).toBe(true);
       expect(result.paymentMethods[0]!.type).toBe("silent-payment");
       expect(result.paymentMethods[0]!.valid).toBe(true);
+    });
+  });
+});
+
+describe("BIP-321 Encoder", () => {
+  describe("Basic Encoding", () => {
+    test("encodes simple address", () => {
+      const result = encodeBIP321({ address: TEST_DATA.addresses.mainnet.p2pkh });
+      expect(result.valid).toBe(true);
+      expect(result.uri).toBe(`bitcoin:${TEST_DATA.addresses.mainnet.p2pkh}`);
+    });
+
+    test("encodes bech32 address", () => {
+      const result = encodeBIP321({ address: TEST_DATA.addresses.mainnet.bech32 });
+      expect(result.valid).toBe(true);
+      expect(result.uri).toBe(`bitcoin:${TEST_DATA.addresses.mainnet.bech32}`);
+    });
+
+    test("encodes taproot address", () => {
+      const result = encodeBIP321({ address: TEST_DATA.addresses.mainnet.taproot });
+      expect(result.valid).toBe(true);
+      expect(result.uri).toBe(`bitcoin:${TEST_DATA.addresses.mainnet.taproot}`);
+    });
+
+    test("encodes testnet address", () => {
+      const result = encodeBIP321({ address: TEST_DATA.addresses.testnet.bech32 });
+      expect(result.valid).toBe(true);
+      expect(result.network).toBe("testnet");
+    });
+
+    test("encodes empty address with query params", () => {
+      const result = encodeBIP321({ lightning: TEST_DATA.lightning.mainnet });
+      expect(result.valid).toBe(true);
+      expect(result.uri).toBe(`bitcoin:?lightning=${TEST_DATA.lightning.mainnet}`);
+    });
+  });
+
+  describe("Query Parameters", () => {
+    test("encodes label parameter", () => {
+      const result = encodeBIP321({ address: TEST_DATA.addresses.mainnet.p2pkh, label: "bip321" });
+      expect(result.uri).toBe(`bitcoin:${TEST_DATA.addresses.mainnet.p2pkh}?label=bip321`);
+    });
+
+    test("encodes message parameter", () => {
+      const result = encodeBIP321({ address: TEST_DATA.addresses.mainnet.p2pkh, message: "bip321" });
+      expect(result.uri).toBe(`bitcoin:${TEST_DATA.addresses.mainnet.p2pkh}?message=bip321`);
+    });
+
+    test("encodes amount parameter", () => {
+      const result = encodeBIP321({ address: TEST_DATA.addresses.mainnet.p2pkh, amount: 20.3 });
+      expect(result.valid).toBe(true);
+      expect(result.amount).toBe(20.3);
+      expect(result.uri).toBe(`bitcoin:${TEST_DATA.addresses.mainnet.p2pkh}?amount=20.3`);
+    });
+
+    test("encodes zero amount", () => {
+      const result = encodeBIP321({ address: TEST_DATA.addresses.mainnet.p2pkh, amount: 0 });
+      expect(result.valid).toBe(true);
+      expect(result.amount).toBe(0);
+    });
+
+    test("encodes multiple parameters", () => {
+      const result = encodeBIP321({
+        address: TEST_DATA.addresses.mainnet.p2pkh,
+        amount: 50,
+        label: "Luke-Jr",
+        message: "Donation for project xyz",
+      });
+      expect(result.valid).toBe(true);
+      expect(result.amount).toBe(50);
+      expect(result.label).toBe("Luke-Jr");
+      expect(result.message).toBe("Donation for project xyz");
+    });
+
+    test("encodes special characters in label", () => {
+      const result = encodeBIP321({ address: TEST_DATA.addresses.mainnet.p2pkh, label: "Test & Label" });
+      expect(result.valid).toBe(true);
+      expect(result.label).toBe("Test & Label");
+    });
+
+    test("encodes special characters in message", () => {
+      const result = encodeBIP321({ address: TEST_DATA.addresses.mainnet.p2pkh, message: "Donation for project xyz" });
+      expect(result.valid).toBe(true);
+      expect(result.message).toBe("Donation for project xyz");
+    });
+  });
+
+  describe("Lightning Invoice", () => {
+    test("encodes with single lightning invoice", () => {
+      const result = encodeBIP321({
+        address: TEST_DATA.addresses.mainnet.p2pkh,
+        lightning: TEST_DATA.lightning.mainnet,
+      });
+      expect(result.valid).toBe(true);
+      expect(result.paymentMethods.some((pm) => pm.type === "lightning")).toBe(true);
+    });
+
+    test("encodes with multiple lightning invoices", () => {
+      const result = encodeBIP321({
+        lightning: [TEST_DATA.lightning.mainnet, TEST_DATA.lightning.mainnet],
+      });
+      expect(result.valid).toBe(true);
+      expect(result.paymentMethods.filter((pm) => pm.type === "lightning").length).toBe(2);
+    });
+
+    test("encodes lightning without address", () => {
+      const result = encodeBIP321({ lightning: TEST_DATA.lightning.mainnet });
+      expect(result.valid).toBe(true);
+      expect(result.uri).toBe(`bitcoin:?lightning=${TEST_DATA.lightning.mainnet}`);
+    });
+
+    test("encodes testnet lightning invoice", () => {
+      const result = encodeBIP321({ lightning: TEST_DATA.lightning.testnet });
+      expect(result.valid).toBe(true);
+      expect(result.paymentMethods[0]!.network).toBe("testnet");
+    });
+  });
+
+  describe("Alternative Payment Methods", () => {
+    test("encodes silent payment address", () => {
+      const result = encodeBIP321({ sp: TEST_DATA.silentPayment.mainnet });
+      expect(result.valid).toBe(true);
+      expect(result.paymentMethods[0]!.type).toBe("silent-payment");
+      expect(result.paymentMethods[0]!.network).toBe("mainnet");
+    });
+
+    test("encodes testnet silent payment address", () => {
+      const result = encodeBIP321({ sp: TEST_DATA.silentPayment.testnet });
+      expect(result.valid).toBe(true);
+      expect(result.paymentMethods[0]!.network).toBe("testnet");
+    });
+
+    test("encodes multiple silent payment addresses", () => {
+      const result = encodeBIP321({
+        sp: [TEST_DATA.silentPayment.mainnet, TEST_DATA.silentPayment.mainnet],
+      });
+      expect(result.valid).toBe(true);
+      expect(result.paymentMethods.filter((pm) => pm.type === "silent-payment").length).toBe(2);
+    });
+
+    test("encodes Ark address", () => {
+      const result = encodeBIP321({ ark: TEST_DATA.ark.mainnet });
+      expect(result.valid).toBe(true);
+      expect(result.paymentMethods[0]!.type).toBe("ark");
+      expect(result.paymentMethods[0]!.network).toBe("mainnet");
+    });
+
+    test("encodes testnet Ark address", () => {
+      const result = encodeBIP321({ ark: TEST_DATA.ark.testnet });
+      expect(result.valid).toBe(true);
+      expect(result.paymentMethods[0]!.network).toBe("testnet");
+    });
+
+    test("encodes BOLT12 offer", () => {
+      const result = encodeBIP321({ lno: "lno1qqqq02k20d" });
+      expect(result.valid).toBe(true);
+      expect(result.paymentMethods[0]!.type).toBe("offer");
+    });
+  });
+
+  describe("Network-specific Addresses", () => {
+    test("encodes bc parameter", () => {
+      const result = encodeBIP321({ bc: TEST_DATA.addresses.mainnet.bech32 });
+      expect(result.valid).toBe(true);
+      expect(result.paymentMethods[0]!.network).toBe("mainnet");
+    });
+
+    test("encodes tb parameter", () => {
+      const result = encodeBIP321({ tb: TEST_DATA.addresses.testnet.bech32 });
+      expect(result.valid).toBe(true);
+      expect(result.paymentMethods[0]!.network).toBe("testnet");
+    });
+
+    test("encodes bcrt parameter", () => {
+      const result = encodeBIP321({ bcrt: TEST_DATA.addresses.regtest.bech32 });
+      expect(result.valid).toBe(true);
+      expect(result.paymentMethods[0]!.network).toBe("regtest");
+    });
+
+    test("encodes multiple bc addresses", () => {
+      const result = encodeBIP321({
+        bc: [TEST_DATA.addresses.mainnet.bech32, TEST_DATA.addresses.mainnet.taproot],
+      });
+      expect(result.valid).toBe(true);
+      expect(result.paymentMethods.length).toBe(2);
+    });
+  });
+
+  describe("Proof of Payment", () => {
+    test("encodes pop parameter", () => {
+      const result = encodeBIP321({
+        address: TEST_DATA.addresses.mainnet.p2pkh,
+        pop: "customapp:",
+      });
+      expect(result.valid).toBe(true);
+      expect(result.pop).toBeDefined();
+      expect(result.popRequired).toBe(false);
+    });
+
+    test("encodes req-pop parameter", () => {
+      const result = encodeBIP321({
+        address: TEST_DATA.addresses.mainnet.p2pkh,
+        reqPop: "customapp:",
+      });
+      expect(result.valid).toBe(true);
+      expect(result.pop).toBeDefined();
+      expect(result.popRequired).toBe(true);
+    });
+  });
+
+  describe("Optional Parameters", () => {
+    test("encodes custom optional parameters", () => {
+      const result = encodeBIP321({
+        address: TEST_DATA.addresses.mainnet.p2pkh,
+        optionalParams: { custom: "value" },
+      });
+      expect(result.valid).toBe(true);
+      expect(result.optionalParams.custom).toEqual(["value"]);
+    });
+
+    test("encodes multiple custom optional parameters", () => {
+      const result = encodeBIP321({
+        address: TEST_DATA.addresses.mainnet.p2pkh,
+        optionalParams: { foo: "bar", baz: ["one", "two"] },
+      });
+      expect(result.valid).toBe(true);
+      expect(result.optionalParams.foo).toEqual(["bar"]);
+      expect(result.optionalParams.baz).toEqual(["one", "two"]);
+    });
+  });
+
+  describe("Combined Payment Methods", () => {
+    test("encodes address with lightning and silent payment", () => {
+      const result = encodeBIP321({
+        address: TEST_DATA.addresses.mainnet.p2pkh,
+        lightning: TEST_DATA.lightning.mainnet,
+        sp: TEST_DATA.silentPayment.mainnet,
+      });
+      expect(result.valid).toBe(true);
+      expect(result.paymentMethods.length).toBe(3);
+      expect(result.paymentMethods.some((pm) => pm.type === "onchain")).toBe(true);
+      expect(result.paymentMethods.some((pm) => pm.type === "lightning")).toBe(true);
+      expect(result.paymentMethods.some((pm) => pm.type === "silent-payment")).toBe(true);
+    });
+
+    test("encodes all parameters together", () => {
+      const result = encodeBIP321({
+        address: TEST_DATA.addresses.mainnet.p2pkh,
+        amount: 0.5,
+        label: "Test",
+        message: "Payment",
+        lightning: TEST_DATA.lightning.mainnet,
+        sp: TEST_DATA.silentPayment.mainnet,
+        ark: TEST_DATA.ark.mainnet,
+      });
+      expect(result.valid).toBe(true);
+      expect(result.amount).toBe(0.5);
+      expect(result.label).toBe("Test");
+      expect(result.message).toBe("Payment");
+      expect(result.paymentMethods.length).toBe(4);
+    });
+  });
+
+  describe("Invalid Data", () => {
+    test("rejects invalid address", () => {
+      const result = encodeBIP321({ address: "invalid_bitcoin_address" });
+      expect(result.valid).toBe(false);
+    });
+
+    test("rejects negative amount", () => {
+      expect(() => encodeBIP321({
+        address: TEST_DATA.addresses.mainnet.p2pkh,
+        amount: -1,
+      })).toThrow("Invalid amount format");
+    });
+
+    test("rejects NaN amount", () => {
+      expect(() => encodeBIP321({
+        address: TEST_DATA.addresses.mainnet.p2pkh,
+        amount: NaN,
+      })).toThrow("Invalid amount format");
+    });
+
+    test("rejects Infinity amount", () => {
+      expect(() => encodeBIP321({
+        address: TEST_DATA.addresses.mainnet.p2pkh,
+        amount: Infinity,
+      })).toThrow("Invalid amount format");
+    });
+
+    test("rejects invalid lightning invoice", () => {
+      const result = encodeBIP321({ lightning: "invalid_invoice" });
+      expect(result.valid).toBe(false);
+      expect(result.paymentMethods[0]!.valid).toBe(false);
+    });
+
+    test("rejects invalid silent payment address", () => {
+      const result = encodeBIP321({ sp: "sp1invalid" });
+      expect(result.valid).toBe(false);
+    });
+
+    test("rejects invalid Ark address", () => {
+      const result = encodeBIP321({ ark: "ark1invalid" });
+      expect(result.valid).toBe(false);
+    });
+
+    test("rejects forbidden pop scheme", () => {
+      const result = encodeBIP321({
+        address: TEST_DATA.addresses.mainnet.p2pkh,
+        reqPop: "https://evil.com",
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("Forbidden pop scheme"))).toBe(true);
+    });
+
+    test("rejects network mismatch in bc parameter", () => {
+      const result = encodeBIP321({ bc: TEST_DATA.addresses.testnet.bech32 });
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes("network mismatch"))).toBe(true);
+    });
+
+    test("rejects empty params with no payment method", () => {
+      const result = encodeBIP321({ label: "test" });
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain("No valid payment methods found");
+    });
+  });
+
+  describe("Round-trip Encoding", () => {
+    test("encoded URI can be parsed back", () => {
+      const params = {
+        address: TEST_DATA.addresses.mainnet.p2pkh,
+        amount: 1.5,
+        label: "Test Label",
+        message: "Test Message",
+      };
+      const encoded = encodeBIP321(params);
+      expect(encoded.valid).toBe(true);
+      expect(encoded.address).toBe(params.address);
+      expect(encoded.amount).toBe(params.amount);
+      expect(encoded.label).toBe(params.label);
+      expect(encoded.message).toBe(params.message);
+    });
+
+    test("encoded lightning URI can be parsed back", () => {
+      const encoded = encodeBIP321({ lightning: TEST_DATA.lightning.mainnet });
+      expect(encoded.valid).toBe(true);
+      expect(encoded.paymentMethods[0]!.type).toBe("lightning");
+      expect(encoded.paymentMethods[0]!.value).toBe(TEST_DATA.lightning.mainnet);
     });
   });
 });
