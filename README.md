@@ -1,6 +1,6 @@
-# BIP-321 Parser
+# BIP-321 Parsing and Encoding
 
-A TypeScript/JavaScript library for parsing BIP-321 Bitcoin URI scheme. This library validates and extracts payment information from Bitcoin URIs, supporting multiple payment methods including on-chain addresses, Lightning invoices, BOLT12 offers, and silent payments.
+A TypeScript/JavaScript library for parsing and encoding BIP-321 Bitcoin URI scheme. This library validates and extracts payment information from Bitcoin URIs or lets you encode information, supporting multiple payment methods including on-chain addresses, Lightning invoices, BOLT12 offers, and silent payments.
 
 ## Features
 
